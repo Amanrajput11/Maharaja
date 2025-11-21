@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import AdminUsersScreen from '../screens/AdminUsersScreen';
-import AdminProductsScreen from '../screens/AdminProductsScreen';
+import AdminUsersScreen from '../screens/Admin/AdminUsersScreen';
+import AdminProductsScreen from '../screens/Admin/AdminProductsScreen';
 
 const Tab = createBottomTabNavigator();
 

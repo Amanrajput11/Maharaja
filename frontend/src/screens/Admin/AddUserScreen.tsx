@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { styles } from '../styles';
-import { AppContext } from '../context/AppContext';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { styles } from '../../styles';
+import { AppContext } from '../../context/AppContext';
 
-export default function AddUserScreen({ navigation }) {
-  const context = React.useContext(AppContext);
+interface Props {
+  navigation: any;
+}
+
+export default function AddUserScreen({ navigation }: Props) {
+  const context = React.useContext(AppContext) as {
+    addUser: (user: { name: string; email: string; role: string; firmIds: string[] }) => void;
+  } | null;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
 
   const addUser = () => {
-    if (!name || !email) { alert('Please fill all fields'); return; }
+    if (!name || !email) { Alert.alert('Please fill all fields'); return; }
+    if (!context) { Alert.alert('Application context is not available.'); return; }
     context.addUser({ name, email, role: 'user', firmIds: [] });
-    alert('User added successfully!');
+    Alert.alert('User added successfully!');
     navigation.goBack();
   };
 
@@ -28,3 +35,4 @@ export default function AddUserScreen({ navigation }) {
     </View>
   );
 }
+

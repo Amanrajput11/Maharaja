@@ -1,10 +1,10 @@
 import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
-import { styles } from '../styles';
-import { AppContext } from '../context/AppContext';
-import CustomHeader from '../components/CustomHeader';
+import { styles } from '../../styles';
+import { AppContext } from '../../context/AppContext';
+import CustomHeader from '../../components/CustomHeader';
 
-export default function PublicUserDetailsScreen({ route, navigation }) {
+export default function UserDetailsScreen({ route, navigation }) {
   const { userId } = route.params;
   const context = React.useContext(AppContext);
   const user = context.getUserById(userId);
@@ -14,7 +14,7 @@ export default function PublicUserDetailsScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <CustomHeader title="User Details" showLogout={false} navigation={navigation} />
+      <CustomHeader title="User Details" showLogout={true} navigation={navigation} />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Personal Information</Text>
         <Text style={styles.label}>Name: <Text style={styles.value}>{user.name}</Text></Text>
@@ -24,7 +24,7 @@ export default function PublicUserDetailsScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Firms ({userFirms.length})</Text>
         {userFirms.map(firm => (
-          <TouchableOpacity key={firm.id} style={styles.card} onPress={() => navigation.navigate('PublicFirmDetails', { firmId: firm.id })}>
+          <TouchableOpacity key={firm.id} style={styles.card} onPress={() => navigation.navigate('FirmDetails', { firmId: firm.id })}>
             <Text style={styles.cardTitle}>{firm.name}</Text>
             <Text style={styles.cardSubtitle}>{firm.partnerIds.length} Partners • {firm.products.length} Products</Text>
           </TouchableOpacity>

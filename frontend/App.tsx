@@ -7,17 +7,17 @@ import { AppProvider } from './src/context/AppContext';
 import UserTabNavigator from './src/navigation/UserTabNavigator';
 import AdminTabNavigator from './src/navigation/AdminTabNavigator';
 
-import PublicUsersScreen from './src/screens/PublicUsersScreen';
-import PublicUserDetailsScreen from './src/screens/PublicUserDetailsScreen';
-import PublicFirmDetailsScreen from './src/screens/PublicFirmDetailsScreen';
+import PublicUsersScreen from './src/screens/Public/PublicUsersScreen';
+import PublicUserDetailsScreen from './src/screens/Public/PublicUserDetailsScreen';
+import PublicFirmDetailsScreen from './src/screens/Public/PublicFirmDetailsScreen';
 import LoginScreen from './src/screens/LoginScreen';
 
-import UserDetailsScreen from './src/screens/UserDetailsScreen';
-import FirmDetailsScreen from './src/screens/FirmDetailsScreen';
-import AddProductScreen from './src/screens/AddProductScreen';
-import EditProductScreen from './src/screens/EditProductScreen';
+import UserDetailsScreen from './src/screens/User/UserDetailsScreen';
+import FirmDetailsScreen from './src/screens/User/FirmDetailsScreen';
+import AddProductScreen from './src/screens/User/AddProductScreen';
+import EditProductScreen from './src/screens/User/EditProductScreen';
 
-import AddUserScreen from './src/screens/AddUserScreen';
+import AddUserScreen from './src/screens/Admin/AddUserScreen';
 
 const Stack = createNativeStackNavigator();
 

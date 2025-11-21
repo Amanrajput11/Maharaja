@@ -1,8 +1,8 @@
 import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
-import { styles } from '../styles';
-import { AppContext } from '../context/AppContext';
-import CustomHeader from '../components/CustomHeader';
+import { styles } from '../../styles';
+import { AppContext } from '../../context/AppContext';
+import CustomHeader from '../../components/CustomHeader';
 
 export default function FirmDetailsScreen({ route, navigation }: { route: { params: { firmId: string | number } }; navigation: any }) {
   const { firmId } = route.params;

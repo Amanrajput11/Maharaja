@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { styles } from '../styles';
-import { AppContext } from '../context/AppContext';
+import { styles } from '../../styles';
+import { AppContext } from '../../context/AppContext';
 
 export default function AddProductScreen({ route, navigation }) {
   const { firmId } = route.params;

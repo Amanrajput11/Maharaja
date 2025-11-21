@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, FlatList, TouchableOpacity, Text } from 'react-native';
-import { styles } from '../styles';
-import { AppContext } from '../context/AppContext';
-import CustomHeader from '../components/CustomHeader';
+import { styles } from '../../styles';
+import { AppContext } from '../../context/AppContext';
+import CustomHeader from '../../components/CustomHeader';
 
 export default function AdminUsersScreen({ navigation }) {
   const context = React.useContext(AppContext);
