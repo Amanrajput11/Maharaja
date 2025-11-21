@@ -1,150 +1,142 @@
-// controllers/bulkUploadController.js
-const XLSX = require('xlsx');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User.model');
-const generatePassword = require('../Helpers/generatePassword');
-const sendWelcomeEmail = require('../Helpers/sendEmail');
+const XLSX = require("xlsx");
+const User = require("../models/User.model");
+const Firm = require("../models/Firm.model");
+const fs = require("fs");
 
-const bulkUpload = async (req, res) => {
+module.exports = { 
+  bulkUpload: async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.file) return res.status(400).json({ message: "File missing" });
 
     const workbook = XLSX.readFile(req.file.path);
-    const usersSheet = workbook.Sheets['Users'];
-    const firmsSheet = workbook.Sheets['Firms'];
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
 
-    if (!usersSheet || !firmsSheet) {
-      return res.status(400).json({ error: 'Excel must contain sheets named "Users" and "Firms"' });
-    }
+    let createdUsers = 0, updatedUsers = 0;
+    let createdFirms = 0, updatedFirms = 0;
+    let partnerLinks = 0;
 
-    const usersData = XLSX.utils.sheet_to_json(usersSheet);
-    const firmsData = XLSX.utils.sheet_to_json(firmsSheet);
+    for (let row of rows) {
+      let user = await User.findOne({
+        $or: [
+          { email: row.email?.toString().toLowerCase() },
+          { mobile: row.mobile?.toString() }
+        ]
+      });
 
-    const result = { users: 0, firms: 0, errors: [], passwords: [] };
-
-    // Step 1: Create/Update Firms
-    for (const f of firmsData) {
-      const mobile = f.firm_mobile?.toString().trim();
-      if (!mobile) continue;
-
-      await Firm.updateOne(
-        { mobile },
-        { $set: {
-          firm_name: f.firm_name?.trim(),
-          email: f.email?.trim() || '',
-          address: f.address?.trim() || '',
-          city: f.city?.trim() || ''
-        }},
-        { upsert: true }
-      );
-      result.firms++;
-    }
-
-    // Step 2: Create/Update Users + Link Firms
-    for (const row of usersData) {
-      const mobile = row.mobile?.toString().trim();
-      const name = row.full_name?.trim();
-      if (!mobile || !name) {
-        result.errors.push(`Invalid row: ${JSON.stringify(row)}`);
-        continue;
+      if (!user) {
+        user = await User.create({
+          name: row.name,
+          email: row.email?.toString().toLowerCase(),
+          mobile: row.mobile?.toString(),
+          passwordHash: "$2b$10$DummyPasswordHash12345678901234567890", // You can modify
+        });
+        createdUsers++;
+      } else {
+        user.name = row.name || user.name;
+        updatedUsers++;
+        await user.save();
       }
 
-      const firmMobiles = row.firm_mobile_list
-        ?.toString().split(',').map(m => m.trim()).filter(Boolean) || [];
+      let firm = await Firm.findOne({
+        name: row.firmName?.trim()
+      });
 
-      const firmNames = row.firm_names
-        ?.toString().split(',').map(n => n.trim()) || [];
-
-      const isOwnerArr = row.is_owner_list
-        ?.toString().split(',').map(o => o.trim() === 'true') || [];
-
-      const joinedDates = row.joined_dates
-        ?.toString().split(',').map(d => d.trim()) || [];
-
-      const userFirms = [];
-      const partnerBulkOps = [];
-
-      for (let i = 0; i < firmMobiles.length; i++) {
-        const fm = firmMobiles[i];
-        const firm = await Firm.findOne({ mobile: fm });
-
-        if (firm) {
-          userFirms.push({
-            firm_mobile: fm,
-            firm_name: firmNames[i] || firm.firm_name,
-            address: firm.address,
-            city: firm.city,
-            email: firm.email,
-            is_owner: isOwnerArr[i] || false,
-            joined_date: joinedDates[i] ? new Date(joinedDates[i]) : new Date()
-          });
-
-          partnerBulkOps.push({
-            updateOne: {
-              filter: { mobile: fm },
-              update: { $push: {
-                partners: {
-                  user_mobile: mobile,
-                  full_name: name,
-                  email: row.email || '',
-                  blood_group: row.blood_group || '',
-                  is_owner: isOwnerArr[i] || false,
-                  share_percentage: isOwnerArr[i] ? 50 : 0,
-                  joined_date: joinedDates[i] ? new Date(joinedDates[i]) : new Date()
-                }
-              }}
-            }
-          });
-        }
+      if (!firm) {
+        firm = await Firm.create({
+          name: row.firmName,
+          address: row.firmAddress,
+          partners: [],
+          products: []
+        });
+        createdFirms++;
+      } else {
+        firm.address = row.firmAddress || firm.address;
+        updatedFirms++;
+        await firm.save();
       }
 
-      const plainPassword = generatePassword();
-      const hashedPassword = await bcrypt.hash(plainPassword, 10);
+      // 3. LINK USER ↔ FIRM
+      const alreadyPartner = firm.partners.includes(user._id);
 
-      await User.updateOne(
-        { mobile },
-        { $set: {
-          full_name: name,
-          email: row.email?.trim() || '',
-          password: hashedPassword,
-          address: row.address?.trim() || '',
-          city: row.city?.trim() || '',
-          blood_group: row.blood_group?.trim() || '',
-          mobile,
-          firms: userFirms
-        }},
-        { upsert: true }
-      );
+      if (!alreadyPartner) {
+        firm.partners.push(user._id);
+        await firm.save();
 
-      result.users++;
-      result.passwords.push({ name, mobile, password: plainPassword });
+        user.firms.push(firm._id);
+        await user.save();
 
-      // Send email if email exists
-      if (row.email?.trim()) {
-        sendWelcomeEmail(row.email.trim(), name, mobile, plainPassword);
-      }
-
-      // Update firms with partner info
-      if (partnerBulkOps.length > 0) {
-        await Firm.bulkWrite(partnerBulkOps);
+        partnerLinks++;
       }
     }
 
-    res.json({
-      success: true,
-      message: 'Bulk upload completed!',
-      summary: {
-        users_added: result.users,
-        firms_added_or_updated: result.firms,
-        passwords_generated: result.passwords
-      },
-      passwords: result.passwords  // You can remove this in production
+    // Remove uploaded file
+    fs.unlinkSync(req.file.path);
+
+    return res.json({
+      message: "Bulk upload completed",
+      stats: {
+        createdUsers,
+        updatedUsers,
+        createdFirms,
+        updatedFirms,
+        partnerLinks
+      }
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Bulk Upload Error:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
-};
+},
+getAllUsers : async (req, res) => {
+  try {
+    const users = await User.find()
+      .populate("firms", "name address gst")  // select fields
+      .lean();
 
-module.exports = { bulkUpload };
+    res.json({
+      message: "Users fetched successfully",
+      data: users
+    });
+
+  } catch (err) {
+    console.error("Get Users Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+getAllFirms : async (req, res) => {
+  try {
+    const firms = await Firm.find()
+      .populate("partners", "name email mobile")
+      .lean();
+
+    res.json({
+      message: "Firms fetched successfully",
+      data: firms
+    });
+
+  } catch (err) {
+    console.error("Get Firms Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+getFirmById : async (req, res) => {
+  try {
+    const firm = await Firm.findById(req.params.id)
+      .populate("partners", "name email mobile")
+      .lean();
+
+    if (!firm) return res.status(404).json({ message: "Firm not found" });
+
+    res.json({
+      message: "Firm fetched successfully",
+      data: firm
+    });
+
+  } catch (err) {
+    console.error("Get Firm Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+}
+}

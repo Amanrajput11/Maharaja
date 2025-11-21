@@ -1,9 +1,16 @@
-// routes/bulkUpload.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { bulkUpload } = require('../controllers/User.controller');
-const upload = require('../Helpers/multer');
+const multer = require("multer");
+const Controller = require("../controllers/User.controller");
 
-router.post('/bulk-upload', upload.single('excel'), bulkUpload);
+const upload = multer({ dest: "uploads/" });
+
+router.post("/excel", upload.single("file"),Controller.bulkUpload);
+
+router.get("/allUsers", Controller.getAllUsers);
+
+router.get("/allFirms", Controller.getAllFirms);
+
+router.get("/firms/:id", Controller.getFirmById);
 
 module.exports = router;
