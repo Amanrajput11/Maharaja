@@ -2,9 +2,89 @@ const XLSX = require("xlsx");
 const User = require("../models/User.model");
 const Firm = require("../models/Firm.model");
 const fs = require("fs");
+const sendEmail = require("../Helpers/sendEmail"); // adjust path if needed
+const bcrypt = require("bcryptjs");
 
 module.exports = { 
-  bulkUpload: async (req, res) => {
+create: async (req, res) => {
+  try {
+    const { name, email, mobile } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ message: "Email already exists" });
+
+    // Generate random password
+    const plainPassword = Math.random().toString(36).slice(-8); // 8 chars
+
+    // Hash the password
+    const password = await bcrypt.hash(plainPassword, 10);
+
+    // Save user
+    const newUser = await User.create({
+      name,
+      email,
+      mobile,
+      password,
+    });
+
+    // Send password to the user's email
+    const subject = "Your Account Credentials";
+    const html = `
+      <h3>Welcome, ${name}!</h3>
+      <p>Your account has been created successfully.</p>
+      <p><strong>Login Email:</strong> ${email}</p>
+      <p><strong>Password:</strong> ${plainPassword}</p>
+      <br/>
+      <p>Please change your password after login.</p>
+    `;
+
+    await sendEmail(email, subject, html);
+
+    res.status(201).json({
+      message: "User created successfully & login credentials sent via email",
+      user: newUser,
+    });
+  } catch (error) {
+    console.error("Create User Error:", error);
+    res.status(500).json({ message: "Internal Server Error", error });
+  }
+},
+ login: async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    return res.json({
+      message: "Login successful",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+      },
+    });
+
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+},
+ bulkUpload: async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "File missing" });
 

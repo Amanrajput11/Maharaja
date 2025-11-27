@@ -5,6 +5,10 @@ const Controller = require("../controllers/User.controller");
 
 const upload = multer({ dest: "uploads/" });
 
+router.post("/",Controller.create);
+
+router.post("/login",Controller.login);
+
 router.post("/excel", upload.single("file"),Controller.bulkUpload);
 
 router.get("/allUsers", Controller.getAllUsers);
