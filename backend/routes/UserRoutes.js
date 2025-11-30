@@ -17,4 +17,8 @@ router.get("/allFirms", Controller.getAllFirms);
 
 router.get("/firms/:id", Controller.getFirmById);
 
+router.post("/firms/:firmId/products",upload.array("images", 5), Controller.addProductToFirm);
+
+router.get("/users/:userId/firms", Controller.getFirmsByUserId);
+
 module.exports = router;

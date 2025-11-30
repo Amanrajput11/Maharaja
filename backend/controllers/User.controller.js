@@ -2,7 +2,7 @@ const XLSX = require("xlsx");
 const User = require("../models/User.model");
 const Firm = require("../models/Firm.model");
 const fs = require("fs");
-const sendEmail = require("../Helpers/sendEmail"); // adjust path if needed
+const sendEmail = require("../Helpers/sendEmail"); 
 const bcrypt = require("bcryptjs");
 
 module.exports = { 
@@ -76,6 +76,7 @@ create: async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
+        role: user.role, 
       },
     });
 
@@ -172,7 +173,7 @@ create: async (req, res) => {
 getAllUsers : async (req, res) => {
   try {
     const users = await User.find()
-      .populate("firms", "name address gst")  // select fields
+      .populate("firms", "name address gst")  
       .lean();
 
     res.json({
@@ -218,5 +219,89 @@ getFirmById : async (req, res) => {
     console.error("Get Firm Error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
+},
+addProductToFirm: async (req, res) => {
+  try {
+    const { firmId } = req.params;
+    const { userId, name, sku, price, description } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID missing" });
+    }
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) {
+      return res.status(404).json({ message: "Firm not found" });
+    }
+
+    if (!firm.partners.includes(userId)) {
+      return res.status(403).json({
+        message: "You are not authorized to add products to this firm",
+      });
+    }
+
+   
+    let imagePaths = [];
+    if (req.files && req.files.length > 0) {
+      imagePaths = req.files.map(file => file.path);
+    }
+
+    const newProduct = {
+      name,
+      sku,
+      price,
+      description,
+      images: imagePaths,
+    };
+
+    firm.products.push(newProduct);
+    await firm.save();
+
+    res.json({
+      message: "Product added successfully",
+      product: newProduct
+    });
+
+  } catch (err) {
+    console.error("Add Product Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+getFirmsByUserId: async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId)
+      .populate({
+        path: "firms",
+        select: "name address gst partners products",
+        populate: {
+          path: "partners",
+          select: "name email mobile"
+        }
+      })
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "User firms fetched successfully",
+      data: {
+        userId: user._id,
+        userName: user.name,
+        email: user.email,
+        firms: user.firms
+      }
+    });
+
+  } catch (err) {
+    console.error("Get User Firms Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 }
+
+
 }
