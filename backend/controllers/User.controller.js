@@ -301,7 +301,84 @@ getFirmsByUserId: async (req, res) => {
     console.error("Get User Firms Error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
-}
+},
+addNewUserToFirm: async (req, res) => {
+  try {
+    const creatorId = req.user._id; 
+    const { firmId, name, email, mobile } = req.body;
+
+    if (!firmId || !name || !email) {
+      return res.status(400).json({ message: "firmId, name & email are required" });
+    }
+
+    const creator = await User.findById(creatorId);
+    if (!creator) return res.status(404).json({ message: "Logged-in user not found" });
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) return res.status(404).json({ message: "Firm not found" });
+
+    const isAdmin = creator.role === "admin";
+    const isPartner = firm.partners.includes(creatorId);
+
+    if (!isAdmin && !isPartner) {
+      return res.status(403).json({
+        message: "Not authorized — only admin or existing partners can add a user"
+      });
+    }
+
+    let newUser = await User.findOne({ email });
+    let isExistingUser = true;
+
+    if (!newUser) {
+      isExistingUser = false;
+
+      const plainPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+      newUser = await User.create({
+        name,
+        email: email.toLowerCase(),
+        mobile,
+        password: hashedPassword,
+      });
+
+      await sendEmail(
+        email,
+        "Your Account Credentials",
+        `<p>Hello ${name},</p>
+         <p>You have been added to a firm.</p>
+         <p><b>Email:</b> ${email}</p>
+         <p><b>Password:</b> ${plainPassword}</p>`
+      );
+    }
+
+    if (!firm.partners.includes(newUser._id)) {
+      firm.partners.push(newUser._id);
+      await firm.save();
+    }
+
+    if (!newUser.firms.includes(firm._id)) {
+      newUser.firms.push(firm._id);
+      await newUser.save();
+    }
+
+    return res.json({
+      message: `User ${isExistingUser ? "linked to firm" : "created and added to firm"} successfully`,
+      data: {
+        userId: newUser._id,
+        userName: newUser.name,
+        firmId: firm._id,
+        firmName: firm.name
+      }
+    });
+
+  } catch (err) {
+    console.error("Add New User To Firm Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+
 
 
 }

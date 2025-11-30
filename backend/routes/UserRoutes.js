@@ -21,4 +21,6 @@ router.post("/firms/:firmId/products",upload.array("images", 5), Controller.addP
 
 router.get("/users/:userId/firms", Controller.getFirmsByUserId);
 
+router.post("/firms/addNewUser", Controller.addNewUserToFirm);
+
 module.exports = router;
