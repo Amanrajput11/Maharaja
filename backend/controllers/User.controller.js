@@ -304,54 +304,45 @@ getFirmsByUserId: async (req, res) => {
 },
 addNewUserToFirm: async (req, res) => {
   try {
-    const creatorId = req.user._id; 
     const { firmId, name, email, mobile } = req.body;
 
     if (!firmId || !name || !email) {
       return res.status(400).json({ message: "firmId, name & email are required" });
     }
 
-    const creator = await User.findById(creatorId);
-    if (!creator) return res.status(404).json({ message: "Logged-in user not found" });
-
+    // Find firm
     const firm = await Firm.findById(firmId);
     if (!firm) return res.status(404).json({ message: "Firm not found" });
 
-    const isAdmin = creator.role === "admin";
-    const isPartner = firm.partners.includes(creatorId);
+    const userEmail = email.toLowerCase().trim();
 
-    if (!isAdmin && !isPartner) {
-      return res.status(403).json({
-        message: "Not authorized — only admin or existing partners can add a user"
-      });
-    }
+    // Check if user already exists
+    let newUser = await User.findOne({ email: userEmail });
 
-    let newUser = await User.findOne({ email });
     let isExistingUser = true;
+    let plainPassword = null;
 
     if (!newUser) {
       isExistingUser = false;
 
-      const plainPassword = Math.random().toString(36).slice(-8);
+      // generate password
+      plainPassword = Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
       newUser = await User.create({
         name,
-        email: email.toLowerCase(),
+        email: userEmail,
         mobile,
-        password: hashedPassword,
+        password: hashedPassword
       });
-
-      await sendEmail(
-        email,
-        "Your Account Credentials",
-        `<p>Hello ${name},</p>
-         <p>You have been added to a firm.</p>
-         <p><b>Email:</b> ${email}</p>
-         <p><b>Password:</b> ${plainPassword}</p>`
-      );
     }
 
+    // if somehow still undefined
+    if (!newUser) {
+      return res.status(500).json({ message: "Unexpected error — user not created" });
+    }
+
+    // Link User ↔ Firm
     if (!firm.partners.includes(newUser._id)) {
       firm.partners.push(newUser._id);
       await firm.save();
@@ -362,11 +353,25 @@ addNewUserToFirm: async (req, res) => {
       await newUser.save();
     }
 
+    // send email only if user was newly created
+    if (!isExistingUser && plainPassword) {
+      await sendEmail(
+        userEmail,
+        "Account Created",
+        `
+        <h3>Hello ${name},</h3>
+        <p>You have been added to a firm.</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Password:</b> ${plainPassword}</p>
+        `
+      );
+    }
+
     return res.json({
-      message: `User ${isExistingUser ? "linked to firm" : "created and added to firm"} successfully`,
+      message: `User ${isExistingUser ? "added to firm" : "created and added to firm"} successfully`,
       data: {
         userId: newUser._id,
-        userName: newUser.name,
+        name: newUser.name,
         firmId: firm._id,
         firmName: firm.name
       }
@@ -374,9 +379,10 @@ addNewUserToFirm: async (req, res) => {
 
   } catch (err) {
     console.error("Add New User To Firm Error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 
 
 
