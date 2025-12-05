@@ -7,6 +7,8 @@ const UserSchema = new Schema({
   mobile: { type: String, unique: true, sparse: true },
   password: { type: String, required: true },
   profileImage: { type: String },
+  bloodGroup: { type: String },
+  dob: { type: Date },
 
   role: {
     type: String,

@@ -8,6 +8,8 @@ const { Server } = require("socket.io");
 const debug = require("debug")(process.env.DEBUG + "server");
 const userRoutes = require("./routes/UserRoutes");
 const path = require("path");
+const feedRoutes = require("./routes/FeedRoutes");
+
 
 const app = express();
 
@@ -82,6 +84,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/users", userRoutes);
+app.use("/api/feeds", feedRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {
@@ -100,7 +103,7 @@ app.get("/api/socket-status", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3051;
+const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {
   debug("Listening on " + PORT);

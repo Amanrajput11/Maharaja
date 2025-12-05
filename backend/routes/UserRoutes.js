@@ -23,4 +23,20 @@ router.get("/users/:userId/firms", Controller.getFirmsByUserId);
 
 router.post("/firms/addNewUser", Controller.addNewUserToFirm);
 
+router.put("/firms/:firmId/products/:productId",upload.array("images", 5),  Controller.updateProductInFirm);
+
+router.delete("/firms/:firmId/products/:productId",Controller.deleteProductFromFirm);
+
+router.post("/users/:userId/addFirm", Controller.addFirmToUser);
+
+router.post("/addUserWithFirm", Controller.addUserWithFirm);
+
+router.delete("/users/:userId", Controller.deleteUser);
+
+router.delete("/firms/:firmId", Controller.deleteFirm);
+
+router.put("/firms/:firmId", Controller.updateFirmDetails);
+
+router.get("/search/firms", Controller.searchFirms);
+
 module.exports = router;

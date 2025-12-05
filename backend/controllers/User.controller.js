@@ -10,18 +10,14 @@ create: async (req, res) => {
   try {
     const { name, email, mobile } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ message: "Email already exists" });
 
-    // Generate random password
-    const plainPassword = Math.random().toString(36).slice(-8); // 8 chars
+    const plainPassword = Math.random().toString(36).slice(-8); 
 
-    // Hash the password
     const password = await bcrypt.hash(plainPassword, 10);
 
-    // Save user
     const newUser = await User.create({
       name,
       email,
@@ -29,7 +25,6 @@ create: async (req, res) => {
       password,
     });
 
-    // Send password to the user's email
     const subject = "Your Account Credentials";
     const html = `
       <h3>Welcome, ${name}!</h3>
@@ -110,7 +105,7 @@ create: async (req, res) => {
           name: row.name,
           email: row.email?.toString().toLowerCase(),
           mobile: row.mobile?.toString(),
-          passwordHash: "$2b$10$DummyPasswordHash12345678901234567890", // You can modify
+          passwordHash: "$2b$10$DummyPasswordHash12345678901234567890", 
         });
         createdUsers++;
       } else {
@@ -137,7 +132,6 @@ create: async (req, res) => {
         await firm.save();
       }
 
-      // 3. LINK USER ↔ FIRM
       const alreadyPartner = firm.partners.includes(user._id);
 
       if (!alreadyPartner) {
@@ -151,7 +145,6 @@ create: async (req, res) => {
       }
     }
 
-    // Remove uploaded file
     fs.unlinkSync(req.file.path);
 
     return res.json({
@@ -310,13 +303,11 @@ addNewUserToFirm: async (req, res) => {
       return res.status(400).json({ message: "firmId, name & email are required" });
     }
 
-    // Find firm
     const firm = await Firm.findById(firmId);
     if (!firm) return res.status(404).json({ message: "Firm not found" });
 
     const userEmail = email.toLowerCase().trim();
 
-    // Check if user already exists
     let newUser = await User.findOne({ email: userEmail });
 
     let isExistingUser = true;
@@ -325,7 +316,6 @@ addNewUserToFirm: async (req, res) => {
     if (!newUser) {
       isExistingUser = false;
 
-      // generate password
       plainPassword = Math.random().toString(36).slice(-8);
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -337,12 +327,10 @@ addNewUserToFirm: async (req, res) => {
       });
     }
 
-    // if somehow still undefined
     if (!newUser) {
       return res.status(500).json({ message: "Unexpected error — user not created" });
     }
 
-    // Link User ↔ Firm
     if (!firm.partners.includes(newUser._id)) {
       firm.partners.push(newUser._id);
       await firm.save();
@@ -353,7 +341,6 @@ addNewUserToFirm: async (req, res) => {
       await newUser.save();
     }
 
-    // send email only if user was newly created
     if (!isExistingUser && plainPassword) {
       await sendEmail(
         userEmail,
@@ -383,6 +370,320 @@ addNewUserToFirm: async (req, res) => {
   }
 },
 
+updateProductInFirm: async (req, res) => {
+  try {
+    const { firmId, productId } = req.params;
+    const { userId, name, sku, price, description } = req.body;
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) {
+      return res.status(404).json({ message: "Firm not found" });
+    }
+
+    const product = firm.products.id(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    if (name) product.name = name;
+    if (sku) product.sku = sku;
+    if (price) product.price = price;
+    if (description) product.description = description;
+
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map((file) => file.path);
+      product.images.push(...newImages); 
+    }
+
+    await firm.save();
+
+    res.json({
+      message: "Product updated successfully",
+      product,
+    });
+
+  } catch (err) {
+    console.error("Update Product Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+deleteProductFromFirm: async (req, res) => {
+  try {
+    const { firmId, productId } = req.params;
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) return res.status(404).json({ message: "Firm not found" });
+
+    const product = firm.products.id(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    if (product.images.length > 0) {
+      product.images.forEach((img) => {
+        if (fs.existsSync(img)) fs.unlinkSync(img);
+      });
+    }
+
+    product.deleteOne();
+    await firm.save();
+
+    res.json({ message: "Product deleted successfully" });
+  } catch (err) {
+    console.error("Delete Product Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+updateUserDetails: async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, mobile, role } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (name) user.name = name;
+    if (email) user.email = email.toLowerCase();
+    if (mobile) user.mobile = mobile;
+    if (role) user.role = role;
+
+    if (req.file) {
+      try {
+        if (user.profileImage && fs.existsSync(user.profileImage)) {
+          fs.unlinkSync(user.profileImage);
+        }
+      } catch (err) {
+        console.warn("Old profile image deletion failed:", err.message);
+      }
+
+      user.profileImage = req.file.path; 
+    }
+
+    await user.save();
+
+    res.json({
+      message: "User details updated successfully",
+      user: {
+        _id: user._id,
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        profileImage: user.profileImage,
+      },
+    });
+
+  } catch (err) {
+    console.error("Update User Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+addFirmToUser: async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { firmName, firmAddress, gst } = req.body;
+
+    if (!firmName) return res.status(400).json({ message: "Firm name is required" });
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    let firm = await Firm.findOne({ name: firmName.trim() });
+
+    if (!firm) {
+      firm = await Firm.create({
+        name: firmName,
+        address: firmAddress,
+        gst,
+        partners: [user._id],
+        products: []
+      });
+    } else {
+      if (!firm.partners.includes(user._id)) {
+        firm.partners.push(user._id);
+        await firm.save();
+      }
+    }
+
+    if (!user.firms.includes(firm._id)) {
+      user.firms.push(firm._id);
+      await user.save();
+    }
+
+    res.json({
+      message: "Firm added to user successfully",
+      firm,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        firms: user.firms
+      }
+    });
+
+  } catch (err) {
+    console.error("Add Firm To User Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+addUserWithFirm: async (req, res) => {
+  try {
+    const { name, email, mobile, role, firmName, firmAddress, gst } = req.body;
+
+    if (!name || !email || !firmName) {
+      return res.status(400).json({ message: "Name, email, and firm name are required" });
+    }
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (user) return res.status(400).json({ message: "User with this email already exists" });
+
+    const plainPassword = Math.random().toString(36).slice(-8);
+    const password = await bcrypt.hash(plainPassword, 10);
+
+    user = await User.create({
+      name,
+      email,
+      mobile,
+      role: role || 'user',
+      password,
+      firms: []
+    });
+
+    const firm = await Firm.create({
+      name: firmName,
+      address: firmAddress,
+      gst,
+      partners: [user._id],
+      products: []
+    });
+
+    user.firms.push(firm._id);
+    await user.save();
+
+    const subject = "Your Account Credentials";
+    const html = `
+      <h3>Welcome, ${name}!</h3>
+      <p>Your account has been created successfully.</p>
+      <p><strong>Login Email:</strong> ${email}</p>
+      <p><strong>Password:</strong> ${plainPassword}</p>
+      <br/>
+      <p>Please change your password after login.</p>
+    `;
+
+    await sendEmail(email, subject, html);
+
+    res.status(201).json({
+      message: "User and firm created successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        firms: [firm],
+      },
+      plainPassword,
+    });
+
+  } catch (err) {
+    console.error("Add User With Firm Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+deleteUser: async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await Firm.updateMany(
+      { partners: user._id },
+      { $pull: { partners: user._id } }
+    );
+
+    await user.deleteOne();
+
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Delete User Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+deleteFirm: async (req, res) => {
+  try {
+    const { firmId } = req.params;
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) return res.status(404).json({ message: "Firm not found" });
+
+    await User.updateMany(
+      { firms: firm._id },
+      { $pull: { firms: firm._id } }
+    );
+
+    await firm.deleteOne();
+
+    res.json({ message: "Firm deleted successfully" });
+  } catch (err) {
+    console.error("Delete Firm Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+updateFirmDetails: async (req, res) => {
+  try {
+    const { firmId } = req.params;
+    const { name, address, gst, meta } = req.body;
+
+    const firm = await Firm.findById(firmId);
+    if (!firm) {
+      return res.status(404).json({ message: "Firm not found" });
+    }
+
+    if (name) firm.name = name;
+    if (address) firm.address = address;
+    if (gst) firm.gst = gst;
+    if (meta) firm.meta = meta;
+
+    await firm.save();
+
+    return res.status(200).json({
+      message: "Firm details updated successfully",
+      firm,
+    });
+  } catch (error) {
+    console.error("Update Firm Error:", error);
+    return res.status(500).json({ message: "Server Error", error });
+  }
+},
+
+searchFirms : async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === "") {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    const regex = new RegExp(q, "i"); 
+
+    const firms = await Firm.find({
+      $or: [
+        { name: regex },
+        { gst: regex },
+        { address: regex }
+      ]
+    }).select("name gst address products")
+     .populate("partners", "name email");;
+
+    res.json({ total: firms.length, firms });
+  } catch (error) {
+    console.error("Search Firm Error:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+},
 
 
 
