@@ -39,4 +39,10 @@ router.put("/firms/:firmId", Controller.updateFirmDetails);
 
 router.get("/search/firms", Controller.searchFirms);
 
+router.put("/change-password/:userId", Controller.updatePasswordUsingOld);
+
+router.post("/send-otp", Controller.sendOtp);
+
+router.post("/verify-otp", Controller.verifyOtp);
+
 module.exports = router;

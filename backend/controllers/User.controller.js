@@ -46,7 +46,8 @@ create: async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error });
   }
 },
- login: async (req, res) => {
+
+login: async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -80,7 +81,8 @@ create: async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 },
- bulkUpload: async (req, res) => {
+
+bulkUpload: async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "File missing" });
 
@@ -92,57 +94,81 @@ create: async (req, res) => {
     let createdFirms = 0, updatedFirms = 0;
     let partnerLinks = 0;
 
-    for (let row of rows) {
+    for (let row of rows) { 
+      const name = row.name?.toString().trim();
+      const email = row.email?.toString().trim().toLowerCase();    
+      const dob = row.dob?.toString().trim();
+      const bloodgroup = row.bloodgroup?.toString().trim();
+      const image = row.image?.toString().trim();
+      const mobile = row.mobile?.toString().trim();
+      const firmName = row.firmName?.toString().trim();
+      const firmAddress = row.firmAddress?.toString().trim();
+
+      if (!name || !mobile || !firmName) {
+        console.log("Skipping row due to missing data:", row);
+        continue;
+      }
+
+      let finalEmail = email && email !== "n/a" ? email : `user_${mobile}@example.com`;
+
       let user = await User.findOne({
         $or: [
-          { email: row.email?.toString().toLowerCase() },
-          { mobile: row.mobile?.toString() }
+          { email: finalEmail },
+          { mobile }
         ]
       });
 
       if (!user) {
         user = await User.create({
-          name: row.name,
-          email: row.email?.toString().toLowerCase(),
-          mobile: row.mobile?.toString(),
-          passwordHash: "$2b$10$DummyPasswordHash12345678901234567890", 
+          name,
+          email: finalEmail,
+          mobile,
+          dob,
+          bloodgroup,
+          profileImage: image,
+          password: "123456",           
+          role: "user",
+          firms: []
         });
         createdUsers++;
       } else {
-        user.name = row.name || user.name;
+        user.name = name || user.name;
+        user.dob = dob || user.dob;
+        user.bloodgroup = bloodgroup || user.bloodgroup;
+        user.profileImage = image || user.profileImage;
         updatedUsers++;
         await user.save();
       }
 
-      let firm = await Firm.findOne({
-        name: row.firmName?.trim()
-      });
+      
+      let firm = await Firm.findOne({ name: firmName });
 
       if (!firm) {
         firm = await Firm.create({
-          name: row.firmName,
-          address: row.firmAddress,
+          name: firmName,
+          address: firmAddress,
           partners: [],
           products: []
         });
         createdFirms++;
       } else {
-        firm.address = row.firmAddress || firm.address;
+        firm.address = firmAddress || firm.address;
         updatedFirms++;
         await firm.save();
       }
 
-      const alreadyPartner = firm.partners.includes(user._id);
-
-      if (!alreadyPartner) {
+     
+      if (!firm.partners.includes(user._id)) {
         firm.partners.push(user._id);
         await firm.save();
-
-        user.firms.push(firm._id);
-        await user.save();
-
         partnerLinks++;
       }
+
+      if (!user.firms.includes(firm._id)) {
+        user.firms.push(firm._id);
+        await user.save();
+      }
+
     }
 
     fs.unlinkSync(req.file.path);
@@ -163,6 +189,7 @@ create: async (req, res) => {
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 getAllUsers : async (req, res) => {
   try {
     const users = await User.find()
@@ -179,6 +206,7 @@ getAllUsers : async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 getAllFirms : async (req, res) => {
   try {
     const firms = await Firm.find()
@@ -195,6 +223,7 @@ getAllFirms : async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 getFirmById : async (req, res) => {
   try {
     const firm = await Firm.findById(req.params.id)
@@ -213,26 +242,16 @@ getFirmById : async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 addProductToFirm: async (req, res) => {
   try {
     const { firmId } = req.params;
     const { userId, name, sku, price, description } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ message: "User ID missing" });
-    }
-
     const firm = await Firm.findById(firmId);
     if (!firm) {
       return res.status(404).json({ message: "Firm not found" });
     }
-
-    if (!firm.partners.includes(userId)) {
-      return res.status(403).json({
-        message: "You are not authorized to add products to this firm",
-      });
-    }
-
    
     let imagePaths = [];
     if (req.files && req.files.length > 0) {
@@ -295,6 +314,7 @@ getFirmsByUserId: async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 addNewUserToFirm: async (req, res) => {
   try {
     const { firmId, name, email, mobile } = req.body;
@@ -407,6 +427,7 @@ updateProductInFirm: async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 deleteProductFromFirm: async (req, res) => {
   try {
     const { firmId, productId } = req.params;
@@ -478,6 +499,7 @@ updateUserDetails: async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 addFirmToUser: async (req, res) => {
   try {
     const { userId } = req.params;
@@ -526,6 +548,7 @@ addFirmToUser: async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 },
+
 addUserWithFirm: async (req, res) => {
   try {
     const { name, email, mobile, role, firmName, firmAddress, gst } = req.body;
@@ -685,7 +708,119 @@ searchFirms : async (req, res) => {
   }
 },
 
+updatePasswordUsingOld: async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { oldPassword, newPassword } = req.body;
 
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Old and new password are required" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashed;
+    await user.save();
+
+    res.json({
+      message: "Password updated successfully",
+    });
+
+  } catch (err) {
+    console.error("Update Password (old) Error:", err);
+    res.status(500).json({ message: "Server Error", error: err.message });
+  }
+},
+
+sendOtp: async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    user.otp = hashedOtp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000; 
+    await user.save();
+
+    const subject = "Your Password Reset OTP";
+    const html = `
+      <h3>Hello ${user.name},</h3>
+      <p>Your OTP to reset password is:</p>
+      <h2>${otp}</h2>
+      <p>This OTP is valid for 10 minutes.</p>
+    `;
+
+    await sendEmail(email, subject, html);
+
+    res.json({ message: "OTP sent to email" });
+
+  } catch (err) {
+    console.error("Send OTP Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+verifyOtp: async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp)
+      return res.status(400).json({ message: "Email and OTP are required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.otp || !user.otpExpires)
+      return res.status(400).json({ message: "OTP not requested" });
+
+    if (user.otpExpires < Date.now())
+      return res.status(400).json({ message: "OTP expired" });
+
+    const isMatch = await bcrypt.compare(otp, user.otp);
+    if (!isMatch) return res.status(400).json({ message: "Invalid OTP" });
+
+    const plainPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    user.password = hashedPassword;
+
+    user.otp = null;
+    user.otpExpires = null;
+
+    await user.save();
+
+    const subject = "Your New Password";
+    const html = `
+      <h3>Hello ${user.name},</h3>
+      <p>Your password has been reset successfully.</p>
+      <p><strong>New Password:</strong> ${plainPassword}</p>
+      <p>Please log in with this password and change it immediately for security.</p>
+    `;
+
+    await sendEmail(user.email, subject, html);
+
+    res.json({ message: "OTP verified. New password sent to your email." });
+
+  } catch (err) {
+    console.error("Verify OTP Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
 
 
 }

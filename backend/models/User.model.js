@@ -9,6 +9,8 @@ const UserSchema = new Schema({
   profileImage: { type: String },
   bloodGroup: { type: String },
   dob: { type: Date },
+  otp: { type: String },
+  otpExpires: { type: Date },
 
   role: {
     type: String,
