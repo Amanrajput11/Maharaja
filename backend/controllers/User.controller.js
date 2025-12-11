@@ -501,10 +501,59 @@ updateUserDetails: async (req, res) => {
   }
 },
 
+// addFirmToUser: async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+//     const { firmName, firmAddress, gst, categories } = req.body;
+
+//     if (!firmName) return res.status(400).json({ message: "Firm name is required" });
+
+//     const user = await User.findById(userId);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     let firm = await Firm.findOne({ name: firmName.trim() });
+
+//     if (!firm) {
+//       firm = await Firm.create({
+//         name: firmName,
+//         address: firmAddress,
+//         gst,
+//         partners: [user._id],
+//         products: [],
+//         categories: []
+//       });
+//     } else {
+//       if (!firm.partners.includes(user._id)) {
+//         firm.partners.push(user._id);
+//         await firm.save();
+//       }
+//     }
+
+//     if (!user.firms.includes(firm._id)) {
+//       user.firms.push(firm._id);
+//       await user.save();
+//     }
+
+//     res.json({
+//       message: "Firm added to user successfully",
+//       firm,
+//       user: {
+//         _id: user._id,
+//         name: user.name,
+//         email: user.email,
+//         firms: user.firms
+//       }
+//     });
+
+//   } catch (err) {
+//     console.error("Add Firm To User Error:", err);
+//     res.status(500).json({ message: "Server error", error: err.message });
+//   }
+// },
 addFirmToUser: async (req, res) => {
   try {
     const { userId } = req.params;
-    const { firmName, firmAddress, gst, categories } = req.body;
+    const { firmName, firmAddress, gst, categories = [] } = req.body;
 
     if (!firmName) return res.status(400).json({ message: "Firm name is required" });
 
@@ -514,21 +563,32 @@ addFirmToUser: async (req, res) => {
     let firm = await Firm.findOne({ name: firmName.trim() });
 
     if (!firm) {
+      // Create new firm with categories
       firm = await Firm.create({
         name: firmName,
         address: firmAddress,
         gst,
         partners: [user._id],
         products: [],
-        categories: []
+        categories: Array.isArray(categories) ? categories : [],
       });
+
     } else {
+      // Add the user as partner if not already added
       if (!firm.partners.includes(user._id)) {
         firm.partners.push(user._id);
-        await firm.save();
       }
+
+      // Merge new categories (remove duplicates)
+      if (Array.isArray(categories) && categories.length > 0) {
+        const newCategories = [...new Set([...firm.categories, ...categories])];
+        firm.categories = newCategories;
+      }
+
+      await firm.save();
     }
 
+    // Add firm to user's list
     if (!user.firms.includes(firm._id)) {
       user.firms.push(firm._id);
       await user.save();
