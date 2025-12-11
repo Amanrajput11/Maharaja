@@ -504,7 +504,7 @@ updateUserDetails: async (req, res) => {
 addFirmToUser: async (req, res) => {
   try {
     const { userId } = req.params;
-    const { firmName, firmAddress, gst } = req.body;
+    const { firmName, firmAddress, gst, categories } = req.body;
 
     if (!firmName) return res.status(400).json({ message: "Firm name is required" });
 
