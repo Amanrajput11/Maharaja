@@ -148,7 +148,8 @@ bulkUpload: async (req, res) => {
           name: firmName,
           address: firmAddress,
           partners: [],
-          products: []
+          products: [],
+          categories: []
         });
         createdFirms++;
       } else {
@@ -518,7 +519,8 @@ addFirmToUser: async (req, res) => {
         address: firmAddress,
         gst,
         partners: [user._id],
-        products: []
+        products: [],
+        categories: []
       });
     } else {
       if (!firm.partners.includes(user._id)) {
@@ -577,7 +579,8 @@ addUserWithFirm: async (req, res) => {
       address: firmAddress,
       gst,
       partners: [user._id],
-      products: []
+      products: [],
+      categories: []
     });
 
     user.firms.push(firm._id);
