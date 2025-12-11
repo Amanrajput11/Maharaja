@@ -45,7 +45,7 @@ router.post("/send-otp", Controller.sendOtp);
 
 router.post("/verify-otp", Controller.verifyOtp);
 
-router.get("/birthdays/today", controller.getTodaysBirthdays);
+router.get("/birthdays/today", Controller.getTodaysBirthdays);
 
 router.put("/users/:userId", upload.single("profileImage"), Controller.updateUserDetails);
 
