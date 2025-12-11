@@ -562,70 +562,6 @@ addFirmToUser: async (req, res) => {
   }
 },
 
-// addUserWithFirm: async (req, res) => {
-//   try {
-//     const { name, email, mobile, role, firmName, firmAddress, gst } = req.body;
-
-//     if (!name || !email || !firmName) {
-//       return res.status(400).json({ message: "Name, email, and firm name are required" });
-//     }
-
-//     let user = await User.findOne({ email: email.toLowerCase() });
-//     if (user) return res.status(400).json({ message: "User with this email already exists" });
-
-//     const plainPassword = Math.random().toString(36).slice(-8);
-//     const password = await bcrypt.hash(plainPassword, 10);
-
-//     user = await User.create({
-//       name,
-//       email,
-//       mobile,
-//       role: role || 'user',
-//       password,
-//       firms: []
-//     });
-
-//     const firm = await Firm.create({
-//       name: firmName,
-//       address: firmAddress,
-//       gst,
-//       partners: [user._id],
-//       products: [],
-//       categories: []
-//     });
-
-//     user.firms.push(firm._id);
-//     await user.save();
-
-//     const subject = "Your Account Credentials";
-//     const html = `
-//       <h3>Welcome, ${name}!</h3>
-//       <p>Your account has been created successfully.</p>
-//       <p><strong>Login Email:</strong> ${email}</p>
-//       <p><strong>Password:</strong> ${plainPassword}</p>
-//       <br/>
-//       <p>Please change your password after login.</p>
-//     `;
-
-//     await sendEmail(email, subject, html);
-
-//     res.status(201).json({
-//       message: "User and firm created successfully",
-//       user: {
-//         _id: user._id,
-//         name: user.name,
-//         email: user.email,
-//         role: user.role,
-//         firms: [firm],
-//       },
-//       plainPassword,
-//     });
-
-//   } catch (err) {
-//     console.error("Add User With Firm Error:", err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// },
 addUserWithFirm: async (req, res) => {
   try {
     const { 
@@ -911,5 +847,74 @@ verifyOtp: async (req, res) => {
   }
 },
 
+getTodaysBirthdays: async (req, res) => {
+  try {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1;
 
+    const users = await User.find({
+      dob: { $exists: true }
+    });
+
+    const todaysBirthdays = users.filter(u => {
+      const dob = new Date(u.dob);
+      return dob.getDate() === day && (dob.getMonth() + 1) === month;
+    });
+
+    res.json({
+      count: todaysBirthdays.length,
+      users: todaysBirthdays,
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
+
+updateUserDetails: async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, mobile, role } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (name) user.name = name;
+    if (email) user.email = email.toLowerCase();
+    if (mobile) user.mobile = mobile;
+    if (role) user.role = role;
+
+    if (req.file) {
+      try {
+        if (user.profileImage && fs.existsSync(user.profileImage)) {
+          fs.unlinkSync(user.profileImage); 
+        }
+      } catch (err) {
+        console.warn("Old profile image deletion failed:", err.message);
+      }
+
+      user.profileImage = req.file.path; 
+    }
+
+    await user.save();
+
+    res.json({
+      message: "User details updated successfully",
+      user: {
+        _id: user._id,
+        id: user._id.toString(), 
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        profileImage: user.profileImage,
+      },
+    });
+
+  } catch (err) {
+    console.error("Update User Error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+},
 }
