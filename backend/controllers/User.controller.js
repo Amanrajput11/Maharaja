@@ -501,55 +501,6 @@ updateUserDetails: async (req, res) => {
   }
 },
 
-// addFirmToUser: async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const { firmName, firmAddress, gst, categories } = req.body;
-
-//     if (!firmName) return res.status(400).json({ message: "Firm name is required" });
-
-//     const user = await User.findById(userId);
-//     if (!user) return res.status(404).json({ message: "User not found" });
-
-//     let firm = await Firm.findOne({ name: firmName.trim() });
-
-//     if (!firm) {
-//       firm = await Firm.create({
-//         name: firmName,
-//         address: firmAddress,
-//         gst,
-//         partners: [user._id],
-//         products: [],
-//         categories: []
-//       });
-//     } else {
-//       if (!firm.partners.includes(user._id)) {
-//         firm.partners.push(user._id);
-//         await firm.save();
-//       }
-//     }
-
-//     if (!user.firms.includes(firm._id)) {
-//       user.firms.push(firm._id);
-//       await user.save();
-//     }
-
-//     res.json({
-//       message: "Firm added to user successfully",
-//       firm,
-//       user: {
-//         _id: user._id,
-//         name: user.name,
-//         email: user.email,
-//         firms: user.firms
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error("Add Firm To User Error:", err);
-//     res.status(500).json({ message: "Server error", error: err.message });
-//   }
-// },
 addFirmToUser: async (req, res) => {
   try {
     const { userId } = req.params;
@@ -611,9 +562,82 @@ addFirmToUser: async (req, res) => {
   }
 },
 
+// addUserWithFirm: async (req, res) => {
+//   try {
+//     const { name, email, mobile, role, firmName, firmAddress, gst } = req.body;
+
+//     if (!name || !email || !firmName) {
+//       return res.status(400).json({ message: "Name, email, and firm name are required" });
+//     }
+
+//     let user = await User.findOne({ email: email.toLowerCase() });
+//     if (user) return res.status(400).json({ message: "User with this email already exists" });
+
+//     const plainPassword = Math.random().toString(36).slice(-8);
+//     const password = await bcrypt.hash(plainPassword, 10);
+
+//     user = await User.create({
+//       name,
+//       email,
+//       mobile,
+//       role: role || 'user',
+//       password,
+//       firms: []
+//     });
+
+//     const firm = await Firm.create({
+//       name: firmName,
+//       address: firmAddress,
+//       gst,
+//       partners: [user._id],
+//       products: [],
+//       categories: []
+//     });
+
+//     user.firms.push(firm._id);
+//     await user.save();
+
+//     const subject = "Your Account Credentials";
+//     const html = `
+//       <h3>Welcome, ${name}!</h3>
+//       <p>Your account has been created successfully.</p>
+//       <p><strong>Login Email:</strong> ${email}</p>
+//       <p><strong>Password:</strong> ${plainPassword}</p>
+//       <br/>
+//       <p>Please change your password after login.</p>
+//     `;
+
+//     await sendEmail(email, subject, html);
+
+//     res.status(201).json({
+//       message: "User and firm created successfully",
+//       user: {
+//         _id: user._id,
+//         name: user.name,
+//         email: user.email,
+//         role: user.role,
+//         firms: [firm],
+//       },
+//       plainPassword,
+//     });
+
+//   } catch (err) {
+//     console.error("Add User With Firm Error:", err);
+//     res.status(500).json({ message: "Server error", error: err.message });
+//   }
+// },
 addUserWithFirm: async (req, res) => {
   try {
-    const { name, email, mobile, role, firmName, firmAddress, gst } = req.body;
+    const { 
+      name, 
+      email, 
+      mobile, 
+      role, 
+      firmName, 
+      firmAddress, 
+      gst,
+      categories = []         // <-- added here
+    } = req.body;
 
     if (!name || !email || !firmName) {
       return res.status(400).json({ message: "Name, email, and firm name are required" });
@@ -634,15 +658,17 @@ addUserWithFirm: async (req, res) => {
       firms: []
     });
 
+    // Create Firm with categories
     const firm = await Firm.create({
       name: firmName,
       address: firmAddress,
       gst,
       partners: [user._id],
       products: [],
-      categories: []
+      categories: Array.isArray(categories) ? categories : []   // <-- added here
     });
 
+    // Link firm to the user
     user.firms.push(firm._id);
     await user.save();
 
@@ -665,7 +691,7 @@ addUserWithFirm: async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        firms: [firm],
+        firms: [firm]
       },
       plainPassword,
     });
