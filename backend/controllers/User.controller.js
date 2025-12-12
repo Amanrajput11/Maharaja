@@ -851,78 +851,30 @@ module.exports = {
   },
 
   getTodaysBirthdays: async (req, res) => {
-    try {
-      const today = new Date();
-      const day = today.getDate();
-      const month = today.getMonth() + 1;
+  try {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth() + 1;
 
-      const users = await User.find({ dob: { $exists: true } });
+    const users = await User.find({ dob: { $exists: true } });
 
-      const todaysBirthdays = users.filter((u) => {
-        const dob = new Date(u.dob);
-        return dob.getDate() === day && dob.getMonth() + 1 === month;
-      });
+    const todaysBirthdays = users.filter(u => {
+      const dob = new Date(u.dob);
+      return dob.getDate() === day && (dob.getMonth() + 1) === month;
+    });
 
-      for (const birthdayUser of todaysBirthdays) {
-        const lastWished = birthdayUser.lastBirthdayWished
-          ? new Date(birthdayUser.lastBirthdayWished)
-          : null;
+    res.json({
+      count: todaysBirthdays.length,
+      users: todaysBirthdays,
+    });
 
-        const sameDay =
-          lastWished &&
-          lastWished.getDate() === day &&
-          lastWished.getMonth() + 1 === month &&
-          lastWished.getFullYear() === today.getFullYear();
-
-        if (!sameDay) {
-          await Notification.create({
-            userId: birthdayUser._id,
-            message: `🎉 Happy Birthday ${birthdayUser.name}!`,
-            type: "birthday_wish",
-          });
-
-          birthdayUser.lastBirthdayWished = today;
-          await birthdayUser.save();
-        }
-      }
-
-      const otherUsers = users.filter(
-        (u) => !todaysBirthdays.some((b) => b._id.equals(u._id))
-      );
-
-      for (const user of otherUsers) {
-        const lastNotified = user.lastBirthdayNotified
-          ? new Date(user.lastBirthdayNotified)
-          : null;
-
-        const alreadyNotifiedToday =
-          lastNotified &&
-          lastNotified.getDate() === day &&
-          lastNotified.getMonth() + 1 === month &&
-          lastNotified.getFullYear() === today.getFullYear();
-
-        if (!alreadyNotifiedToday && todaysBirthdays.length > 0) {
-          const names = todaysBirthdays.map((u) => u.name).join(", ");
-
-          await Notification.create({
-            userId: user._id,
-            message: `🎂 Today is ${names}'s birthday!`,
-            type: "birthday_info",
-          });
-
-          user.lastBirthdayNotified = today;
-          await user.save();
-        }
-      }
-
-      res.json({
-        count: todaysBirthdays.length,
-        users: todaysBirthdays,
-      });
-    } catch (err) {
-      res.status(500).json({ message: "Server error", error: err.message });
-    }
-  },
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
+  }
+},
 
   updateUserDetails: async (req, res) => {
     try {
